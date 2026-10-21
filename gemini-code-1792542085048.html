@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relógio do Culto</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: #0d1117;
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .painel-ajuste {
+      background-color: #161b22;
+      border: 1px solid #30363d;
+      padding: 12px 24px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .painel-ajuste label {
+      font-size: 1rem;
+      color: #8b949e;
+    }
+
+    .painel-ajuste input[type="time"] {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      color: #58a6ff;
+      font-size: 1.1rem;
+      padding: 6px 12px;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .card-relogio {
+      text-align: center;
+      width: 100%;
+      max-width: 700px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 20px;
+      padding: 40px 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .rotulo {
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 0.9rem;
+      color: #8b949e;
+      margin-bottom: 8px;
+    }
+
+    .hora-atual {
+      font-size: clamp(3.5rem, 12vw, 6.5rem);
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      color: #f0f6fc;
+      line-height: 1;
+      margin-bottom: 30px;
+    }
+
+    .linha-info {
+      display: flex;
+      justify-content: space-around;
+      border-top: 1px solid #21262d;
+      padding-top: 25px;
+      gap: 15px;
+    }
+
+    .info-box {
+      flex: 1;
+    }
+
+    .valor-info {
+      font-size: clamp(1.8rem, 6vw, 2.5rem);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cor-alvo { color: #58a6ff; }
+    .cor-normal { color: #3fb950; }
+    .cor-alerta { color: #d29922; }
+    .cor-estourado { color: #f85149; }
+  </style>
+</head>
+<body>
+
+  <!-- Controles para definir o horário final -->
+  <div class="painel-ajuste">
+    <label for="fimCulto">Horário de Término:</label>
+    <input type="time" id="fimCulto" value="21:30">
+  </div>
+
+  <div class="card-relogio">
+    <div class="rotulo">Horário de Brasília</div>
+    <div class="hora-atual" id="horaBrasilia">--:--:--</div>
+
+    <div class="linha-info">
+      <div class="info-box">
+        <div class="rotulo">Previsão Término</div>
+        <div class="valor-info cor-alvo" id="displayFim">--:--</div>
+      </div>
+      <div class="info-box">
+        <div class="rotulo" id="rotuloTempo">Tempo Restante</div>
+        <div class="valor-info cor-normal" id="tempoRestante">--:--</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const inputFim = document.getElementById('fimCulto');
+    const displayHora = document.getElementById('horaBrasilia');
+    const displayFim = document.getElementById('displayFim');
+    const displayRestante = document.getElementById('tempoRestante');
+    const rotuloTempo = document.getElementById('rotuloTempo');
+
+    function atualizarPainel() {
+      // 1. Força a data e hora oficial de Brasília
+      const agora = new Date();
+      const formatadorHora = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+
+      const [hStr, mStr, sStr] = formatadorHora.format(agora).split(':');
+      displayHora.textContent = `${hStr}:${mStr}:${sStr}`;
+
+      const horarioFim = inputFim.value;
+      if (!horarioFim) return;
+
+      displayFim.textContent = horarioFim;
+
+      const [horaFim, minFim] = horarioFim.split(':').map(Number);
+      
+      const segundosAgora = (Number(hStr) * 3600) + (Number(mStr) * 60) + Number(sStr);
+      const segundosAlvo = (horaFim * 3600) + (minFim * 60);
+
+      let deltaSegundos = segundosAlvo - segundosAgora;
+
+      // 2. Cálculo do tempo restante ou estourado
+      if (deltaSegundos >= 0) {
+        rotuloTempo.textContent = "Tempo Restante";
+        const hRest = Math.floor(deltaSegundos / 3600);
+        const mRest = Math.floor((deltaSegundos % 3600) / 60);
+        const sRest = deltaSegundos % 60;
+
+        displayRestante.textContent = 
+          `${String(hRest).padStart(2, '0')}:${String(mRest).padStart(2, '0')}:${String(sRest).padStart(2, '0')}`;
+
+        // Altera cor conforme a aproximação
+        if (deltaSegundos <= 300) { // Menos de 5 min: amarelo
+          displayRestante.className = "valor-info cor-alerta";
+        } else {
+          displayRestante.className = "valor-info cor-normal";
+        }
+      } else {
+        // Horário estourado: vermelho
+        rotuloTempo.textContent = "Tempo Ultrapassado";
+        const deltaPositivo = Math.abs(deltaSegundos);
+        const hEst = Math.floor(deltaPositivo / 3600);
+        const mEst = Math.floor((deltaPositivo % 3600) / 60);
+        const sEst = deltaPositivo % 60;
+
+        displayRestante.textContent = 
+          `+${String(hEst).padStart(2, '0')}:${String(mEst).padStart(2, '0')}:${String(sEst).padStart(2, '0')}`;
+        displayRestante.className = "valor-info cor-estourado";
+      }
+    }
+
+    setInterval(atualizarPainel, 1000);
+    atualizarPainel();
+  </script>
+</body>
+</html>
